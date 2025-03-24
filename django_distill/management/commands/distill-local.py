@@ -19,6 +19,7 @@ class Command(BaseCommand):
         parser.add_argument('--force', dest='force', action='store_true')
         parser.add_argument('--exclude-staticfiles', dest='exclude_staticfiles', action='store_true')
         parser.add_argument('--generate-redirects', dest='generate_redirects', action='store_true')
+        parser.add_argument('--follow-redirects', dest='follow_redirects', action='store_true')
         parser.add_argument('--parallel-render', dest='parallel_render', type=int, default=1)
 
     def _quiet(self, *args, **kwargs):
@@ -31,6 +32,7 @@ class Command(BaseCommand):
         force = options.get('force')
         exclude_staticfiles = options.get('exclude_staticfiles')
         generate_redirects = options.get('generate_redirects')
+        follow_redirects = options.get('follow_redirects')
         parallel_render = options.get('parallel_render')
         if quiet:
             stdout = self._quiet
@@ -81,7 +83,7 @@ class Command(BaseCommand):
         stdout('')
         stdout('Generating static site into directory: {}'.format(output_dir))
         try:
-            render_to_dir(output_dir, urls_to_distill, stdout, parallel_render=parallel_render)
+            render_to_dir(output_dir, urls_to_distill, stdout, parallel_render=parallel_render, follow_redirects=follow_redirects)
             if not exclude_staticfiles:
                 copy_static_and_media_files(output_dir, stdout)
         except DistillError as err:

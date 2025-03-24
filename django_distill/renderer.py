@@ -157,10 +157,12 @@ class DistillRender(object):
         Renders a complete static site from all urls registered with
         distill_url() and then copies over all static media.
     '''
+    client = None
 
-    def __init__(self, urls_to_distill, parallel_render=1):
+    def __init__(self, urls_to_distill, parallel_render=1, follow_redirects=False):
         self.urls_to_distill = urls_to_distill
         self.parallel_render = parallel_render
+        self.follow_redirects = follow_redirects
         self.namespace_map = load_namespace_map()
         # set allowed hosts to '*', static rendering shouldn't care about the hostname
         settings.ALLOWED_HOSTS = ['*']
@@ -338,6 +340,13 @@ class DistillRender(object):
         except Exception as err:
             e = 'Failed to render view "{}": {}'.format(uri, err)
             raise DistillError(e) from err
+
+        if self.follow_redirects and response.status_code in [301, 302]:
+            if not self.client:
+                from django.test import Client
+                self.client = Client()
+            response = self.client.get(uri, follow=True)
+
         if response.status_code not in status_codes:
             err = 'View returned an invalid status code: {} (expected one of {})'
             raise DistillError(err.format(response.status_code, status_codes))
@@ -443,18 +452,18 @@ def write_file(full_path, content):
             raise
 
 
-def get_renderer(urls_to_distill, parallel_render=1):
+def get_renderer(urls_to_distill, parallel_render=1, follow_redirects=False):
     import_path = getattr(settings, 'DISTILL_RENDERER', None)
     if import_path:
         render_cls = import_string(import_path)
     else:
         render_cls = DistillRender
-    return render_cls(urls_to_distill, parallel_render)
+    return render_cls(urls_to_distill, parallel_render, follow_redirects=follow_redirects)
 
 
-def render_to_dir(output_dir, urls_to_distill, stdout, parallel_render=1):
+def render_to_dir(output_dir, urls_to_distill, stdout, parallel_render=1, follow_redirects=False):
     load_urls(stdout)
-    renderer = get_renderer(urls_to_distill, parallel_render)
+    renderer = get_renderer(urls_to_distill, parallel_render, follow_redirects=follow_redirects)
     for page_uri, file_name, http_response in renderer.render():
         full_path, local_uri = get_filepath(output_dir, file_name, page_uri)
         content = http_response.content
